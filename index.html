@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        EduGenie - AI Learning Assistant
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', path='style.css') }}"
+    >
+
+</head>
+
+
+<body>
+
+
+<div class="app">
+
+
+    <!-- HEADER -->
+
+    <header class="hero">
+
+        <div>
+
+            <div class="eyebrow">
+                AI-POWERED LEARNING ASSISTANT
+            </div>
+
+            <h1>
+                EduGenie
+            </h1>
+
+            <p>
+                Learn smarter with Google Gemini.
+            </p>
+
+        </div>
+
+
+        <div
+            id="status"
+            class="status"
+        >
+            Ready
+        </div>
+
+    </header>
+
+
+
+    <!-- MAIN CARD -->
+
+    <section class="card">
+
+
+        <label for="task">
+            Choose a learning task
+        </label>
+
+
+        <select id="task">
+
+            <option value="qa">
+                Q&A - Ask a Question
+            </option>
+
+            <option value="explain">
+                Explain a Concept
+            </option>
+
+            <option value="quiz">
+                Generate Quiz
+            </option>
+
+            <option value="summarize">
+                Summarize Text
+            </option>
+
+            <option value="learn">
+                Learning Path
+            </option>
+
+        </select>
+
+
+
+        <label for="input">
+
+            Question, topic, or educational text
+
+        </label>
+
+
+        <textarea
+            id="input"
+            rows="10"
+            placeholder="Example: Explain the Pythagoras theorem in simple language."
+        ></textarea>
+
+
+
+        <div class="actions">
+
+            <button
+                id="submit"
+            >
+                Generate
+            </button>
+
+
+            <button
+                id="clear"
+                class="secondary"
+            >
+                Clear
+            </button>
+
+        </div>
+
+
+    </section>
+
+
+
+    <!-- RESULT -->
+
+    <section
+        id="result-card"
+        class="card result-card hidden"
+    >
+
+
+        <div class="result-heading">
+
+            <h2>
+                Result
+            </h2>
+
+
+            <button
+                id="copy"
+                class="secondary small"
+            >
+                Copy
+            </button>
+
+        </div>
+
+
+        <div id="result"></div>
+
+
+    </section>
+
+
+
+    <footer>
+
+        EduGenie
+        <span>•</span>
+        FastAPI
+        <span>•</span>
+        Google Gemini
+
+    </footer>
+
+
+</div>
+
+
+
+<script>
+
+
+const task =
+    document.getElementById("task");
+
+
+const input =
+    document.getElementById("input");
+
+
+const submit =
+    document.getElementById("submit");
+
+
+const clear =
+    document.getElementById("clear");
+
+
+const resultCard =
+    document.getElementById("result-card");
+
+
+const result =
+    document.getElementById("result");
+
+
+const statusEl =
+    document.getElementById("status");
+
+
+const copy =
+    document.getElementById("copy");
+
+
+
+const endpoints = {
+
+    qa: "/qa",
+
+    explain: "/explain",
+
+    quiz: "/quiz",
+
+    summarize: "/summarize",
+
+    learn: "/learn/recommendations"
+
+};
+
+
+
+function escapeHtml(value) {
+
+    return String(value)
+
+        .replaceAll("&", "&amp;")
+
+        .replaceAll("<", "&lt;")
+
+        .replaceAll(">", "&gt;")
+
+        .replaceAll('"', "&quot;")
+
+        .replaceAll(
+            "'",
+            "&#039;"
+        );
+}
+
+
+
+function renderText(text) {
+
+    return `
+
+        <div class="text-output">
+
+            ${escapeHtml(text)
+                .replaceAll("\n", "<br>")}
+
+        </div>
+
+    `;
+
+}
+
+
+
+function renderQuiz(questions) {
+
+    return questions.map(
+        (question, index) => `
+
+        <article class="quiz-question">
+
+            <h3>
+
+                ${index + 1}.
+                ${escapeHtml(
+                    question.question
+                )}
+
+            </h3>
+
+
+            <div class="options">
+
+                ${question.options.map(
+                    (option, optionIndex) => `
+
+                    <button
+
+                        class="option"
+
+                        data-question="${index}"
+
+                        data-option="${optionIndex}"
+
+                    >
+
+                        ${escapeHtml(option)}
+
+                    </button>
+
+                `
+                ).join("")}
+
+            </div>
+
+
+            <p
+
+                class="quiz-feedback"
+
+                id="feedback-${index}"
+
+            ></p>
+
+        </article>
+
+    `
+    ).join("");
+
+}
+
+
+
+submit.addEventListener(
+    "click",
+    async () => {
+
+        const text =
+            input.value.trim();
+
+
+        if (!text) {
+
+            alert(
+                "Please enter a question, topic, or passage."
+            );
+
+            return;
+
+        }
+
+
+        submit.disabled = true;
+
+        statusEl.textContent =
+            "Thinking...";
+
+
+        resultCard.classList.remove(
+            "hidden"
+        );
+
+
+        result.innerHTML = `
+
+            <p>
+                EduGenie is generating your response...
+            </p>
+
+        `;
+
+
+
+        try {
+
+
+            const response =
+                await fetch(
+                    endpoints[task.value],
+                    {
+
+                        method: "POST",
+
+                        headers: {
+
+                            "Content-Type":
+                                "application/json"
+
+                        },
+
+                        body: JSON.stringify({
+
+                            text: text
+
+                        })
+
+                    }
+                );
+
+
+
+            const data =
+                await response.json();
+
+
+
+            if (!response.ok) {
+
+                throw new Error(
+
+                    data.detail ||
+                    "Request failed."
+
+                );
+
+            }
+
+
+
+            if (task.value === "quiz") {
+
+
+                result.innerHTML =
+                    renderQuiz(
+                        data.result.questions
+                    );
+
+
+                window.currentQuiz =
+                    data.result.questions;
+
+
+
+                document
+                    .querySelectorAll(".option")
+                    .forEach(button => {
+
+
+                        button.addEventListener(
+                            "click",
+                            () => {
+
+
+                                const questionIndex =
+                                    Number(
+                                        button.dataset.question
+                                    );
+
+
+                                const optionIndex =
+                                    Number(
+                                        button.dataset.option
+                                    );
+
+
+                                const selected =
+                                    window.currentQuiz[
+                                        questionIndex
+                                    ].options[
+                                        optionIndex
+                                    ];
+
+
+                                const correct =
+                                    window.currentQuiz[
+                                        questionIndex
+                                    ].answer;
+
+
+                                const feedback =
+                                    document.getElementById(
+                                        `feedback-${questionIndex}`
+                                    );
+
+
+                                document
+                                    .querySelectorAll(
+                                        `[data-question="${questionIndex}"]`
+                                    )
+                                    .forEach(
+                                        item => {
+
+                                            item.classList.remove(
+                                                "selected"
+                                            );
+
+                                        }
+                                    );
+
+
+                                button.classList.add(
+                                    "selected"
+                                );
+
+
+                                if (
+                                    selected === correct
+                                ) {
+
+                                    feedback.textContent =
+                                        "Correct! 🎉";
+
+                                    feedback.className =
+                                        "quiz-feedback correct";
+
+                                }
+
+                                else {
+
+                                    feedback.textContent =
+                                        `Not quite. Correct answer: ${correct}`;
+
+                                    feedback.className =
+                                        "quiz-feedback wrong";
+
+                                }
+
+                            }
+                        );
+
+                    });
+
+            }
+
+            else {
+
+                result.innerHTML =
+                    renderText(
+                        data.result
+                    );
+
+            }
+
+
+            statusEl.textContent =
+                "Complete";
+
+        }
+
+
+        catch (error) {
+
+            result.innerHTML = `
+
+                <div class="error">
+
+                    ${escapeHtml(
+                        error.message
+                    )}
+
+                </div>
+
+            `;
+
+
+            statusEl.textContent =
+                "Error";
+
+        }
+
+
+        finally {
+
+            submit.disabled =
+                false;
+
+        }
+
+    }
+);
+
+
+
+clear.addEventListener(
+    "click",
+    () => {
+
+        input.value = "";
+
+        result.innerHTML = "";
+
+        resultCard.classList.add(
+            "hidden"
+        );
+
+        statusEl.textContent =
+            "Ready";
+
+    }
+);
+
+
+
+copy.addEventListener(
+    "click",
+    async () => {
+
+        try {
+
+            await navigator.clipboard.writeText(
+                result.innerText
+            );
+
+            copy.textContent =
+                "Copied!";
+
+            setTimeout(
+                () => {
+
+                    copy.textContent =
+                        "Copy";
+
+                },
+                1200
+            );
+
+        }
+
+        catch {
+
+            alert(
+                "Unable to copy the result."
+            );
+
+        }
+
+    }
+);
+
+
+</script>
+
+
+</body>
+
+</html>
